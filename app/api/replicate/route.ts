@@ -8,7 +8,6 @@ import {
   getGenerationCount,
   TRIAL_GENERATION_LIMIT,
 } from "@/lib/usage";
-import { getGuestId, attachGuestCookie, guestUsageKey } from "@/lib/guest-trial";
 import type { DesignQuestionnaire } from "@/types";
 
 /* ─── Prompt maps ──────────────────────────────────────────────────────── */
@@ -285,47 +284,46 @@ function buildEditPrompt(q: DesignQuestionnaire): string {
 /* ─── Route handler ──────────────────────────────────────────────────────── */
 export async function POST(request: Request) {
   try {
-    // ── Auth & trial gate ─────────────────────────────────────────────────
+    // ── Auth & subscription gate ────────────────────────────────────────────
     const session = await getServerSession(authOptions);
-    const isLoggedIn = !!session?.user?.email;
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { error: "Sign in required", code: "auth_required" },
+        { status: 401 }
+      );
+    }
 
-    // Determine usage key: email for logged-in users, guest cookie ID for guests
-    const guestId = isLoggedIn ? null : await getGuestId();
-    const usageKey = isLoggedIn
-      ? session!.user!.email!
-      : guestUsageKey(guestId!);
+    if (process.env.STRIPE_SECRET_KEY) {
+      const email = session.user.email;
+      const customers = await stripe.customers.list({ email, limit: 1 });
+      let subscriptionStatus: string | null = null;
 
-    // Check Stripe subscription for logged-in users only
-    let hasSubscription = false;
-    if (isLoggedIn && process.env.STRIPE_SECRET_KEY) {
-      const customers = await stripe.customers.list({ email: usageKey, limit: 1 });
       if (customers.data.length > 0) {
         const subs = await stripe.subscriptions.list({
           customer: customers.data[0].id,
           status: "all",
           limit: 5,
         });
-        hasSubscription = subs.data.some(
+        const active = subs.data.find(
           (s) =>
             (s.status === "active" || s.status === "trialing") &&
             !s.cancel_at_period_end
         );
+        subscriptionStatus = active?.status ?? null;
       }
-    }
 
-    if (!hasSubscription) {
-      const currentCount = await getGenerationCount(usageKey);
-      if (currentCount >= TRIAL_GENERATION_LIMIT) {
-        // Guest: prompt login; logged-in: prompt subscription
-        return NextResponse.json(
-          {
-            error: isLoggedIn
-              ? `Free trial limit reached (${TRIAL_GENERATION_LIMIT} renders). Please subscribe to continue.`
-              : `Free trial limit reached. Please sign in to continue.`,
-            code: isLoggedIn ? "trial_exhausted" : "login_required",
-          },
-          { status: 403 }
-        );
+      if (!subscriptionStatus) {
+        // Allow free trial renders before requiring a subscription
+        const currentCount = await getGenerationCount(email);
+        if (currentCount >= TRIAL_GENERATION_LIMIT) {
+          return NextResponse.json(
+            {
+              error: `Free trial limit reached (${TRIAL_GENERATION_LIMIT} renders). Please subscribe to continue.`,
+              code: "trial_exhausted",
+            },
+            { status: 403 }
+          );
+        }
       }
     }
     // ── End gate ────────────────────────────────────────────────────────────
@@ -436,14 +434,13 @@ export async function POST(request: Request) {
       ? (output[output.length - 1] as { toString(): string }).toString()
       : (output as { toString(): string }).toString();
 
-    // Increment usage count (works for both logged-in and guest users)
-    await incrementGenerationCount(usageKey);
+    // Increment usage count for the authenticated user
+    if (session?.user?.email) {
+      await incrementGenerationCount(session.user.email);
+    }
 
     console.log("Output URL:", url);
-    const res = NextResponse.json({ output: [url] }, { status: 201 });
-    // Persist guest session cookie so renders are tracked across requests
-    if (!isLoggedIn && guestId) attachGuestCookie(res, guestId);
-    return res;
+    return NextResponse.json({ output: [url] }, { status: 201 });
   } catch (err) {
     console.error("Replicate API error:", err);
     const raw =
