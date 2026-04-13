@@ -56,7 +56,22 @@ export function useSubscription(): SubscriptionState & { refresh: () => Promise<
   useEffect(() => {
     if (sessionStatus === "loading") return;
     if (!session?.user) {
-      setState({ ...DEFAULT, loading: false });
+      // Guest: fetch their trial count from the cookie-aware usage endpoint
+      fetch("/api/usage")
+        .then((r) => r.json())
+        .then((usage) => {
+          const count = usage.count ?? 0;
+          const limit = usage.limit ?? 3;
+          setState({
+            ...DEFAULT,
+            generationCount: count,
+            generationLimit: limit,
+            // treat as "subscribed" while they still have free renders
+            subscribed: count < limit,
+            loading: false,
+          });
+        })
+        .catch(() => setState({ ...DEFAULT, loading: false }));
       return;
     }
     fetchState();

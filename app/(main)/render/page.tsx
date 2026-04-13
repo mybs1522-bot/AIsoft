@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ImageDropzone } from "@/components/image-dropzone";
@@ -55,6 +56,7 @@ function RenderPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [pricingOpen, setPricingOpen] = useState(false);
   const upgradingRef = useRef(false);
+  const router = useRouter();
 
   const { history, addEntry, removeEntry, clearAll } = useRenderHistory();
   const {
@@ -99,7 +101,12 @@ function RenderPageInner() {
       });
       const data = await response.json();
       if (!response.ok) {
-        if (data.code === "subscription_required") {
+        if (data.code === "login_required") {
+          // Guest trial exhausted — send to sign in
+          router.push("/auth/signin");
+          return;
+        }
+        if (data.code === "trial_exhausted" || data.code === "subscription_required") {
           await refreshSubscription();
           setPricingOpen(true);
           return;
