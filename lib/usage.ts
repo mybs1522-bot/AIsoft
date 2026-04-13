@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 export const TRIAL_GENERATION_LIMIT = 3;
 
@@ -9,7 +9,7 @@ export interface UserRecord {
 }
 
 export async function getGenerationCount(email: string): Promise<number> {
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabaseAdmin()
     .from("user_usage")
     .select("count")
     .eq("email", email)
@@ -17,7 +17,7 @@ export async function getGenerationCount(email: string): Promise<number> {
 
   if (!data) {
     // First time we see this user — insert with count 0
-    await supabaseAdmin.from("user_usage").upsert({
+    await getSupabaseAdmin().from("user_usage").upsert({
       email,
       count: 0,
       signed_up_at: new Date().toISOString(),
@@ -33,7 +33,7 @@ export async function incrementGenerationCount(email: string): Promise<number> {
   const current = await getGenerationCount(email);
   const next = current + 1;
 
-  await supabaseAdmin.from("user_usage").upsert({
+  await getSupabaseAdmin().from("user_usage").upsert({
     email,
     count: next,
     last_active_at: new Date().toISOString(),
@@ -45,7 +45,7 @@ export async function incrementGenerationCount(email: string): Promise<number> {
 export async function getAllUsers(): Promise<
   Array<{ email: string } & UserRecord>
 > {
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabaseAdmin()
     .from("user_usage")
     .select("*")
     .order("signed_up_at", { ascending: false });
