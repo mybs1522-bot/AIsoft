@@ -293,11 +293,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (process.env.STRIPE_SECRET_KEY) {
-      const email = session.user.email;
-      const customers = await stripe.customers.list({ email, limit: 1 });
-      let subscriptionStatus: string | null = null;
+    const email = session.user.email;
 
+    // Check Stripe subscription if configured
+    let subscriptionActive = false;
+    if (process.env.STRIPE_SECRET_KEY) {
+      const customers = await stripe.customers.list({ email, limit: 1 });
       if (customers.data.length > 0) {
         const subs = await stripe.subscriptions.list({
           customer: customers.data[0].id,
@@ -309,21 +310,21 @@ export async function POST(request: Request) {
             (s.status === "active" || s.status === "trialing") &&
             !s.cancel_at_period_end
         );
-        subscriptionStatus = active?.status ?? null;
+        subscriptionActive = !!active;
       }
+    }
 
-      if (!subscriptionStatus) {
-        // Allow free trial renders before requiring a subscription
-        const currentCount = await getGenerationCount(email);
-        if (currentCount >= TRIAL_GENERATION_LIMIT) {
-          return NextResponse.json(
-            {
-              error: `Free trial limit reached (${TRIAL_GENERATION_LIMIT} renders). Please subscribe to continue.`,
-              code: "trial_exhausted",
-            },
-            { status: 403 }
-          );
-        }
+    // Always enforce trial limit for non-subscribers
+    if (!subscriptionActive) {
+      const currentCount = await getGenerationCount(email);
+      if (currentCount >= TRIAL_GENERATION_LIMIT) {
+        return NextResponse.json(
+          {
+            error: `Free trial limit reached (${TRIAL_GENERATION_LIMIT} renders). Please subscribe to continue.`,
+            code: "trial_exhausted",
+          },
+          { status: 403 }
+        );
       }
     }
     // ── End gate ────────────────────────────────────────────────────────────
