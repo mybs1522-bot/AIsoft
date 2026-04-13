@@ -40,14 +40,17 @@ export function AppSidebar() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const {
+    subscribed,
     status: subStatus,
     generationCount,
     generationLimit,
     cancelAtPeriodEnd,
+    loading: subLoading,
   } = useSubscription();
   const isLoggedIn = status === "authenticated" && !!session?.user;
   const isTrialing = subStatus === "trialing";
-  const trialExhausted = isTrialing && generationCount >= generationLimit;
+  const onFreeTrial = isLoggedIn && !subscribed && !subLoading;
+  const trialExhausted = onFreeTrial && generationCount >= generationLimit;
 
   return (
     <Sidebar collapsible="icon">
@@ -113,22 +116,22 @@ export function AppSidebar() {
             </div>
           </div>
         )}
-        {isTrialing && !cancelAtPeriodEnd && (
+        {onFreeTrial && !cancelAtPeriodEnd && (
           <div className="px-2 pb-1">
             {trialExhausted ? (
-              <div className="flex items-center justify-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+              <div className="flex items-center justify-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
                 <Zap className="h-3 w-3 fill-current" />
-                Trial Ends · Active Plan
+                Trial limit reached
               </div>
             ) : (
               <>
                 <div className="mb-1 flex items-center justify-between px-1">
                   <span className="flex items-center gap-1 text-xs font-medium text-amber-500 dark:text-amber-400">
                     <Zap className="h-3 w-3" />
-                    Trial renders
+                    Free renders
                   </span>
                   <span className="text-foreground text-xs font-semibold">
-                    {generationCount}/{generationLimit}
+                    {generationLimit - generationCount} left
                   </span>
                 </div>
                 <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
@@ -170,13 +173,13 @@ export function AppSidebar() {
                       <span className="truncate text-sm font-medium">
                         {session.user.name}
                       </span>
-                      {isTrialing ? (
+                      {onFreeTrial ? (
                         <span
                           className={`truncate text-xs font-medium ${trialExhausted ? "text-destructive" : "text-amber-500 dark:text-amber-400"}`}
                         >
                           {trialExhausted
                             ? "Trial limit reached"
-                            : `${generationCount}/${generationLimit} trial renders`}
+                            : `${generationLimit - generationCount} of ${generationLimit} renders left`}
                         </span>
                       ) : (
                         <span className="text-muted-foreground truncate text-xs">
