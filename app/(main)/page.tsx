@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   Wand2,
   Sparkles,
@@ -19,14 +20,42 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GoogleAuth } from "@/components/google-auth";
-import { CinematicFooter } from "@/components/ui/motion-footer";
-import { LiveDemoSection } from "@/components/live-demo-section";
-import { StatsDashboard } from "@/components/stats-dashboard";
-import { TrustedBySection } from "@/components/trusted-by-section";
-import { BeforeAfterCards } from "@/components/ui/3d-card";
-import { TestimonialsSection } from "@/components/testimonials-section";
-import { Footer } from "@/components/ui/modem-animated-footer";
-import { FundingAnnouncement } from "@/components/ui/funding-announcement";
+
+const CinematicFooter = dynamic(
+  () => import("@/components/ui/motion-footer").then((m) => m.CinematicFooter),
+  { loading: () => null }
+);
+const StatsDashboard = dynamic(
+  () => import("@/components/stats-dashboard").then((m) => m.StatsDashboard),
+  { loading: () => null }
+);
+const TrustedBySection = dynamic(
+  () =>
+    import("@/components/trusted-by-section").then((m) => m.TrustedBySection),
+  { loading: () => null }
+);
+const BeforeAfterCards = dynamic(
+  () => import("@/components/ui/3d-card").then((m) => m.BeforeAfterCards),
+  { loading: () => null }
+);
+const TestimonialsSection = dynamic(
+  () =>
+    import("@/components/testimonials-section").then(
+      (m) => m.TestimonialsSection
+    ),
+  { loading: () => null }
+);
+const Footer = dynamic(
+  () => import("@/components/ui/modem-animated-footer").then((m) => m.Footer),
+  { loading: () => null }
+);
+const FundingAnnouncement = dynamic(
+  () =>
+    import("@/components/ui/funding-announcement").then(
+      (m) => m.FundingAnnouncement
+    ),
+  { loading: () => null }
+);
 
 const features = [
   {

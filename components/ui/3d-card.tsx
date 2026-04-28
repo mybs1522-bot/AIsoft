@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 interface PhotoCardProps {
   src: string;
@@ -69,30 +69,30 @@ const PhotoCard = ({
 };
 
 const AnimatedGrid = () => {
-  const [offset, setOffset] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOffset((prev) => (prev + 0.5) % 40);
-    }, 80);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 animate-[grid-scroll_3.2s_linear_infinite]"
         style={{
           background: `
             linear-gradient(rgba(156,163,175,0.15) 1px, transparent 1px),
             linear-gradient(90deg, rgba(156,163,175,0.15) 1px, transparent 1px)
           `,
           backgroundSize: "40px 40px",
-          backgroundPosition: `${offset}px ${offset}px, ${offset}px ${offset}px`,
           maskImage:
             "radial-gradient(circle at 50% 50%, black 30%, transparent 75%)",
           WebkitMaskImage:
             "radial-gradient(circle at 50% 50%, black 30%, transparent 75%)",
+        }}
+      />
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        @keyframes grid-scroll {
+          from { background-position: 0 0, 0 0; }
+          to { background-position: 40px 40px, 40px 40px; }
+        }
+      `,
         }}
       />
     </div>
@@ -101,16 +101,39 @@ const AnimatedGrid = () => {
 
 export function BeforeAfterCards() {
   const [activeIndex, setActiveIndex] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev === 0 ? 1 : 0));
-    }, 1500);
-    return () => clearInterval(interval);
+    const el = containerRef.current;
+    if (!el) return;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          if (!interval) {
+            interval = setInterval(() => {
+              setActiveIndex((prev) => (prev === 0 ? 1 : 0));
+            }, 1500);
+          }
+        } else if (interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   return (
-    <div className="relative flex h-[300px] w-[300px] items-center justify-center lg:h-[440px] lg:w-[440px]">
+    <div
+      ref={containerRef}
+      className="relative flex h-[300px] w-[300px] items-center justify-center lg:h-[440px] lg:w-[440px]"
+    >
       <AnimatedGrid />
 
       {/* Before card */}

@@ -49,7 +49,7 @@ export function Sparkles({
   const defaultOptions: ISourceOptions = {
     background: { color: { value: background } },
     fullScreen: { enable: false, zIndex: 1 },
-    fpsLimit: 120,
+    fpsLimit: 30,
     particles: {
       color: { value: color },
       move: {
